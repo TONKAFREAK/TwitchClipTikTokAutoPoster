@@ -37,6 +37,10 @@ Fill out all the necessary fields in `.env` file.
 
 Run the application using `nodemon` command.
 
+```console
+nodemon
+```
+
 <h1 id="commands">Commands</h1>
 
 !clip -- to clip last 30 seconds of the twitch stream. 
