@@ -13,7 +13,7 @@ A prequisite to using this program is the installation of a [Selenium-compatible
 
 <h2 id="macos-windows-and-linux">MacOS, Windows and Linux</h2>
 
-Install Nodejs v18.16.0 or greater from [python.org](https://nodejs.org/en/download/prebuilt-installer)
+Install Nodejs v18.16.0 or greater from [nodejs.org](https://nodejs.org/en/download/prebuilt-installer)
 
 <h3 id="building-from-source">Building from source</h3>
 
