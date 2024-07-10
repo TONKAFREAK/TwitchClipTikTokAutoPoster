@@ -1,5 +1,5 @@
-<h1 align="center"> ⬆️ TikTok Uploader </h1>
-<p align="center">A <strong>Selenium</strong>-based automated <strong>TikTok</strong> video uploader</p>
+<h1 align="center"> ⬆️ Twitch bot with build in TikTok Uploader </h1>
+<p align="center">A twitch bot that has a build in <strong>Selenium</strong>-based automated <strong>TikTok</strong> video uploader</p>
 
 <p align="center">
   <img alt="Forks" src="https://img.shields.io/github/forks/TONKAFREAK/TwitchClipTikTokAutoPoster" />
