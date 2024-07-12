@@ -59,11 +59,11 @@ client.on('message', async (channel, user, message, self) => {
 
         // -----COMMANDS------
     
-        if(message.toLowerCase() == '!rank'){
-            const rankInfo = await rank(user.username);
-            return client.say(channel, rankInfo);
+         if(message.toLowerCase() == '!rank'){
+             const rankInfo = await rank(user.username);
+             return client.say(channel, rankInfo);
 
-        }
+         }
 
         if(message.toLowerCase() == '!tonka'){
             return client.say(channel, 'Tonka is a cool guy');

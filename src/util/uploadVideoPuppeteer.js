@@ -1,119 +1,186 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// -------------------------- NOT FINISHED --------------------------
 const { DateTime } = require('luxon');
 const puppeteer = require('puppeteer');
-const getCookies = require('./getCookies'); // Adjust the path if necessary
+const getCookies = require('./getCookies'); 
+const fs = require('fs');
+const path = require('path');
+const sleep = require('./sleep');
 
-async function uploadVideo(username, password, title, tags, filepath) {
-    const cookies = getCookies();
-    console.log(cookies);
+// -------------------------- LOGIN FUNCTION --------------------------
 
-    console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Using Puppeteer to upload video...`);
+async function login() {
+
+    console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Checking if login is necessary...`);
+
+    var cookies = getCookies();
+
+    if (cookies && cookies !== "{}") {
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Unnecessary login, session already exists`);
+        return cookies;
+    }
+
+    console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Login necessary, starting browser...`);
 
     const browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
+    await page.goto(process.env.TIKTOK_LOGIN_URL);
+    console.log(`[${DateTime.utc().toFormat('HH:mm')}] IMPORTANT: Please input login and password and press enter`);
+
+    const captchaContainerSelector = '.captcha_verify_container';
+    console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Waiting for CAPTCHA`);
 
     try {
-        // Navigate to TikTok home page to set the correct domain
-        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Navigating to TikTok home page...`);
-        await page.goto('https://www.tiktok.com/', { waitUntil: 'networkidle2' });
+        await page.waitForSelector(captchaContainerSelector, { timeout: 180000 });
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: CAPTCHA detected.`);
+        await page.waitForFunction(
+            selector => !document.querySelector(selector),
+            { timeout: 180000 },
+            captchaContainerSelector
+        );
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: CAPTCHA solved.`);
+    } catch (e) {
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] error: CAPTCHA not solved within the time limit.`);
+    }
 
-        // Insert cookies
-        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Adding cookies...`);
-        for (let cookie of cookies) {
-            await page.setCookie(cookie);
+    const suspiciousContainerSelector = '.twv-web-modal-mask';
+    const loggedInSelector = '.css-1t4vwes-DivMainContainer';
+
+    try {
+        if (await page.waitForSelector(suspiciousContainerSelector, { timeout: 5000 })) {
+            console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Additional verification required.`);
+            await page.waitForFunction(
+                selector => !document.querySelector(selector),
+                { timeout: 180000 },
+                suspiciousContainerSelector
+            );
+            console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Verified`);
         }
-        // Refresh the page to apply cookies
-        await page.reload({ waitUntil: 'networkidle2' });
-        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Cookies added and page refreshed`);
+    } catch (e) {
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: No additional verification required.`);
+    }
 
-        // Navigate to TikTok login page
-        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Navigating to TikTok login page...`);
-        await page.goto('https://www.tiktok.com/login/phone-or-email/email', { waitUntil: 'networkidle2' });
+    try {
+        await page.waitForSelector(loggedInSelector, { timeout: 180000 });
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Login successful`);
 
-        // Input username and password
-        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Inputting username and password...`);
-        await page.type('input[name="username"]', username);
-        await page.type('input[name="password"]', password);
+        cookies = await page.cookies();
+        fs.writeFileSync('resources/cookies.json', JSON.stringify(cookies));
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Cookies saved`);
+    } catch (e) {
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] error: Login failed`);
+    }
 
-        // Click login button
-        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Clicking login button...`);
-        await page.click('button[data-e2e="login-button"]');
+    await browser.close();
 
-        // Wait for CAPTCHA
-        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Waiting for CAPTCHA...`);
-        try {
-            await page.waitForSelector('.captcha_verify_container', { timeout: 10000 });
-            console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: CAPTCHA detected, Please solve it manually within the next 2 minutes.`);
-            await page.waitForSelector('.captcha_verify_container', { hidden: true, timeout: 180000 });
-            console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: CAPTCHA solved, continuing...`);
-        } catch (error) {
-            console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: No CAPTCHA detected.`);
-        }
+    cookies = getCookies();
+    return cookies;
+}
 
-        // Navigate to the upload page
-        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Navigating to the upload page...`);
-        await page.goto('https://www.tiktok.com/tiktokstudio/upload?from=upload&lang=en', { waitUntil: 'networkidle2' });
+// -------------------------- UPLOAD FUNCTION --------------------------
 
-        // Wait for the file input element
-        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Waiting for file input element...`);
-        const fileInputSelector = 'input[type="file"][accept="video/*"]';
-        await page.waitForSelector(fileInputSelector);
+async function uploadVideo(title, tags, filepath, page, browser) {
 
-        // Upload the video file
-        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Uploading the video file...`);
-        const fileInput = await page.$(fileInputSelector);
-        await fileInput.uploadFile(filepath);
-        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: File selected successfully.`);
+    try {
 
-        // Wait until the video is uploaded and the rich text editor for the title and tags is available
+        await page.goto(process.env.TIKTOK_UPLOAD_URL);
+
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Looking for IFrame...`);
+        const iframeElement = await page.waitForSelector('iframe', { timeout: 20000 });
+        const iframe = await iframeElement.contentFrame();
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: IFrame found`);
+
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Looking for file input...`);
+        const fileInput = await iframe.waitForSelector('input[type="file"][accept="video/*"]', { timeout: 20000 });
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: File input found`);
+
+        await fileInput.uploadFile(path.resolve(filepath));
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Video upload started...`);
+
+        await iframe.waitForFunction(
+            () => document.evaluate(
+                "//div[contains(@class, 'info-status-item') and .//span[text()='Uploaded']]",
+                document,
+                null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
+                null
+            ).singleNodeValue,
+            { timeout: 300000 }
+        );
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Upload complete`);
+
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Searching for editor...`);
         const editorSelector = '.notranslate.public-DraftEditor-content';
-        await page.waitForSelector(editorSelector);
+        await iframe.waitForSelector(editorSelector, { timeout: 10000 });
+        const editor = await iframe.$(editorSelector);
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Editor found`);
 
-        // Clear the rich text editor content and input the title and tags
-        await page.evaluate(() => {
-            const editor = document.querySelector('.notranslate.public-DraftEditor-content');
-            const range = document.createRange();
-            range.selectNodeContents(editor);
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(range);
-            document.execCommand('delete');
-        });
-        await page.type(editorSelector, `${title} ${tags.join(' ')}`);
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Clearing the editor content...`);
+        await editor.click({ clickCount: 3 });
+        await editor.press('Backspace');
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Editor content cleared`);
 
-        // Click the submit button to upload the video
-        const postButtonSelector = 'button.TUXButton--primary';
-        await page.waitForSelector(postButtonSelector);
-        await page.click(postButtonSelector);
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Inputting the video title and tags...`);
+        await editor.type(`${title} ${tags.join(' ')}`);
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Title and tags inputted`);
 
-        // Wait for the video URL to be available
-        const videoUrlSelector = '.video-url';
-        await page.waitForSelector(videoUrlSelector);
-        const videoUrl = await page.evaluate(() => document.querySelector('.video-url').href);
+        await sleep(5000);
 
-        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Video uploaded successfully!`);
-        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Video URL:`, videoUrl);
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Clicking the post button to post the video...`);
+        
+        await iframe.waitForSelector('.TUXButton.TUXButton--default.TUXButton--large.TUXButton--primary');
 
-    } catch (err) {
+        await iframe.click('.TUXButton.TUXButton--default.TUXButton--large.TUXButton--primary');
+
+        console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Video posted`);
+
+        await sleep(2000);
+        
+    }  catch (err) {
         console.error(`[${DateTime.utc().toFormat('HH:mm')}] error: An error occurred:`, err);
-        console.error(await page.content());
     } finally {
         await browser.close();
+        return 'url_placeholder';
     }
 }
 
-module.exports = uploadVideo;
+async function tiktokUpload(title, tags, filepath){
+    
+    const cookies = await login();
+
+    const extractCookieData = (cookieName) => {
+        const cookie = cookies.find(cookie => cookie.name === cookieName);
+      
+        if (cookie) {
+          return {
+            name: cookie.name,
+            value: cookie.value,
+            domain: cookie.domain,
+            path: cookie.path,
+            expiry: new Date(cookie.expires * 1000).getTime() / 1000, 
+            size: cookie.size.toString(), 
+            httpOnly: cookie.httpOnly,
+            secure: cookie.secure
+          };
+        }
+        return null;
+    };
+
+    console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Extracting cookies...`);
+
+    const sessionCookie = extractCookieData('sessionid');
+    const ttTargetIdcCookie = extractCookieData('tt-target-idc');
+
+    const browser = await puppeteer.launch({ headless: true });
+
+    const page = await browser.newPage();   
+    console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Navigating to TikTok home page...`);
+    await page.goto(process.env.TIKTOK_MAINPAGE_URL);
+    console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Inserting cookies...`);
+    await page.setCookie(sessionCookie);
+    await page.setCookie(ttTargetIdcCookie);
+    console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Cookies inserted`);
+    const url = await uploadVideo(title, tags, filepath, page, browser); 
+    return url;
+
+}
+
+module.exports = tiktokUpload;

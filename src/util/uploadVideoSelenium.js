@@ -8,7 +8,6 @@ require('dotenv').config();
 async function uploadVideo(username, password, title, tags, filepath) {
 
     const cookies = getCookies();
-    
 
     console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Using Selenium to upload video...`);
     let driver = await new Builder().forBrowser('chrome').build();
@@ -23,19 +22,26 @@ async function uploadVideo(username, password, title, tags, filepath) {
         if (cookies && cookies.length > 0){
 
             console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Adding cookies...`);
-            for (let cookie of cookies) {
-                
-                const formattedCookie = {
+            const extractCookieData = (cookieName) => {
+                const cookie = cookies.find(cookie => cookie.name === cookieName);
+              
+                if (cookie) {
+                  return {
                     name: cookie.name,
                     value: cookie.value,
                     domain: cookie.domain,
                     path: cookie.path,
-                    expiry: new Date(cookie.expiry).getTime() / 1000, 
+                    expiry: new Date(cookie.expires * 1000).getTime() / 1000, 
+                    size: cookie.size.toString(), 
                     httpOnly: cookie.httpOnly,
                     secure: cookie.secure
-                };
-                await driver.manage().addCookie(formattedCookie);
-            }
+                  };
+                }
+                return null;
+            };
+
+            const sessionCookie = extractCookieData('sessionid');
+            await driver.manage().addCookie(sessionCookie);
             
             await driver.navigate().refresh();
             console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Cookies added and page refreshed`);

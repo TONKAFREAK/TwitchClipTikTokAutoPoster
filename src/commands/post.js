@@ -59,19 +59,21 @@ async function createPost(clipLengthSeconds) {
             await sleep(2000);
             const videoEditingFinished = await editClip(clipId, channelName);
 
+            var url;
+
             if (videoEditingFinished) {
 
                 const videoTitle = `${channelName} on twitch`;
                 const videoTags = ['#valorant','#val','#fyp',`#${channelName}`];
                 const pathToVideo = `resources/clips/${clipId}_edited.mp4`;
 
-                await uploadVideoSelenium(process.env.TIKTOK_USERNAME,process.env.TIKTOK_PASSWORD, videoTitle, videoTags, pathToVideo );
+                //url = await uploadVideoSelenium(process.env.TIKTOK_USERNAME,process.env.TIKTOK_PASSWORD, videoTitle, videoTags, pathToVideo );
 
-                //await uploadVideoPuppeteer(process.env.TIKTOK_USERNAME,process.env.TIKTOK_PASSWORD, videoTitle, videoTags, pathToVideo );
+                url = await uploadVideoPuppeteer(videoTitle, videoTags, pathToVideo );
 
             }
 
-            return `tiktok`;
+            return url;
         } else {
             console.log(`[${DateTime.utc().toFormat('HH:mm')}] info: Failed to post clip. Status code: ${response.status}`);
         }

@@ -11,7 +11,7 @@ const getClipDetails = require('./getClipDetails');
 async function downloadClips(clipId) {
     try {
 
-        await sleep(30000);
+        await sleep(20000);
         
         const directory = 'resources/clips';
         if (!fs.existsSync(directory)) {
