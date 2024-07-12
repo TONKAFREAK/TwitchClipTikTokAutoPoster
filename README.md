@@ -1,3 +1,7 @@
+<p align="center">
+<image src="https://i.ibb.co/1n4ddC2/tbot.png" width="35%">
+</p>
+  
 <h1 align="center"> ⬆️ Twitch bot with build in TikTok Uploader </h1>
 <p align="center">A twitch bot that has a build in <strong>Selenium</strong>-based automated <strong>TikTok</strong> video uploader</p>
 
